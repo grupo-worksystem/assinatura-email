@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Assinatura &mdash; WorkSystem</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --laranja: #E8670A;
+    --grafite: #2D2D2D;
+    --cinza: #6B6B6B;
+    --cinza-claro: #F5F5F5;
+    --branco: #FFFFFF;
+    --borda: #E0E0E0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #EFEFEF;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    color: var(--grafite);
+  }
+  .page-header {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .page-header .accent-bar { width: 4px; height: 48px; background: var(--laranja); border-radius: 2px; }
+  .page-header h1 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--grafite); line-height: 1.1; }
+  .page-header h1 span { display: block; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: var(--cinza); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 2px; }
+  .layout { width: 100%; max-width: 920px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: var(--branco); border-radius: 16px; padding: 32px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--laranja); margin-bottom: 24px; }
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: var(--cinza); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 14px;
+    border: 1.5px solid var(--borda); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--grafite); background: var(--cinza-claro);
+    transition: border-color 0.2s; outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--laranja); background: #fff; }
+  .field input::placeholder { color: #BDBDBD; }
+  .field .hint { font-size: 11px; color: #BDBDBD; margin-top: 4px; }
+
+  /* Seletor de unidade */
+  .unidade-toggle { display: flex; gap: 10px; }
+  .unidade-btn {
+    flex: 1; padding: 10px; border: 1.5px solid var(--borda);
+    border-radius: 8px; background: var(--cinza-claro);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    color: var(--cinza); cursor: pointer; transition: all 0.2s;
+    text-align: center; font-weight: 500;
+  }
+  .unidade-btn:hover { border-color: var(--laranja); color: var(--laranja); }
+  .unidade-btn.ativo { border-color: var(--laranja); background: #fff8f4; color: var(--laranja); font-weight: 600; }
+
+  .btn-gerar { width: 100%; padding: 14px; background: var(--laranja); color: #fff; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.5px; transition: background 0.2s, transform 0.1s; margin-top: 8px; }
+  .btn-gerar:hover { background: #c9560a; transform: translateY(-1px); }
+
+  .card-preview { display: flex; flex-direction: column; gap: 20px; }
+  .preview-box { background: var(--branco); border-radius: 16px; padding: 28px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); overflow-x: auto; }
+  .code-box { background: var(--grafite); border-radius: 16px; padding: 20px 24px; box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .code-box-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .code-box-header span { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 1.5px; }
+  .btn-copiar { padding: 6px 16px; background: var(--laranja); color: #fff; border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .btn-copiar:hover { background: #c9560a; }
+  .btn-copiar.copiado { background: #2e7d32; }
+  #html-output { font-family: 'Courier New', monospace; font-size: 11px; color: #B0BEC5; background: transparent; border: none; width: 100%; height: 120px; resize: none; outline: none; line-height: 1.6; }
+  .instrucoes { background: #fff8f4; border: 1px solid #ffd4b3; border-radius: 10px; padding: 14px 18px; font-size: 12px; color: var(--cinza); line-height: 1.8; }
+  .instrucoes strong { color: var(--laranja); }
+  .instrucoes ol { padding-left: 16px; }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="accent-bar"></div>
+  <h1><span>WorkSystem Tecnologia</span>Gerador de Assinatura</h1>
+</div>
+
+<div class="layout">
+
+  <!-- FORMULÁRIO -->
+  <div class="card">
+    <div class="card-title">Dados do colaborador</div>
+
+    <div class="field">
+      <label>Unidade</label>
+      <div class="unidade-toggle">
+        <button class="unidade-btn ativo" id="btn-cwb" onclick="setUnidade('cwb')"><span style="color:#E8670A;font-weight:bold;font-family:Arial;">&#9679;</span> Curitiba</button>
+        <button class="unidade-btn" id="btn-pgua" onclick="setUnidade('pgua')"><span style="color:#E8670A;font-weight:bold;font-family:Arial;">&#9679;</span> Paranaguá</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nome completo</label>
+      <input type="text" id="inp-nome" placeholder="Ex: Rafael Gonçalves" oninput="atualizar()">
+    </div>
+    <div class="field">
+      <label>Setor / Cargo</label>
+      <input type="text" id="inp-setor" placeholder="Ex: Diretor Operacional" oninput="atualizar()">
+    </div>
+    <div class="field">
+      <label>Ramal</label>
+      <input type="text" id="inp-ramal" placeholder="Ex: 9203" oninput="atualizar()">
+    </div>
+    <div class="field">
+      <label>WhatsApp (com DDD, sem espaço)</label>
+      <input type="text" id="inp-whatsapp" placeholder="Ex: 41999990000" oninput="atualizar()">
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="text" id="inp-email" placeholder="Ex: nome@worksystem.com.br" oninput="atualizar()">
+    </div>
+    <div class="field">
+      <label>URL da foto (imgbb)</label>
+      <input type="text" id="inp-foto" placeholder="Cole aqui o link direto da imagem no imgbb" oninput="atualizar()">
+      <p class="hint">Suba a foto em imgbb.com → clique na imagem → copie o "Direct link"</p>
+    </div>
+
+    <button class="btn-gerar" onclick="atualizar()">↻ Atualizar assinatura</button>
+  </div>
+
+  <!-- PREVIEW + CÓDIGO -->
+  <div class="card-preview">
+    <div class="preview-box">
+      <div class="card-title">Preview</div>
+      <div id="signature-render"></div>
+    </div>
+
+    <div class="code-box">
+      <div class="code-box-header">
+        <span>HTML para Outlook</span>
+        <button class="btn-copiar" id="btn-cop" onclick="copiarHTML()">Copiar HTML</button>
+      </div>
+      <textarea id="html-output" readonly></textarea>
+    </div>
+
+    <div class="instrucoes">
+      <strong>Como usar no Outlook:</strong>
+      <ol>
+        <li>Clique em <strong>Copiar HTML</strong></li>
+        <li>Outlook → Arquivo → Opções → Email → Assinaturas</li>
+        <li>Crie ou edite → clique no ícone <strong>HTML</strong> e cole o código</li>
+        <li>Salve e defina como padrão</li>
+      </ol>
+      <br>
+      <strong>Para a foto:</strong> acesse <a href="https://imgbb.com" target="_blank" style="color:var(--laranja);">imgbb.com</a>, suba a imagem, clique nela e copie o <strong>Direct link</strong>.
+    </div>
+  </div>
+</div>
+
+<script>
+const LOGO_URL = 'https://i.ibb.co/XZxzCLY9/Logo-Work-System-Origina.png';
+
+const UNIDADES = {
+  cwb:  { label: 'Curitiba',   endereco: 'R. Delegado Leopoldo Belczak, 918 &mdash; Curitiba/PR',       maps: 'https://www.google.com/maps/search/?api=1&query=R.+Delegado+Leopoldo+Belczak,+918+Capao+da+Imbuia+Curitiba+PR' },
+  pgua: { label: 'Paranaguá',  endereco: 'R. Antonio Moraes Pereira da Costa, 77 &mdash; Paranagu&aacute;/PR', maps: 'https://www.google.com/maps/search/?api=1&query=R.+Antonio+Moraes+Pereira+da+Costa,+77+Correia+Velho+Paranagua+PR' }
+};
+
+let unidadeAtual = 'cwb';
+
+function setUnidade(u) {
+  unidadeAtual = u;
+  document.getElementById('btn-cwb').classList.toggle('ativo', u === 'cwb');
+  document.getElementById('btn-pgua').classList.toggle('ativo', u === 'pgua');
+  atualizar();
+}
+
+function formatarWpp(wpp) {
+  const n = wpp.replace(/\D/g,'');
+  if (n.length >= 11) return `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7,11)}`;
+  if (n.length >= 10) return `(${n.slice(0,2)}) ${n.slice(2,6)}-${n.slice(6,10)}`;
+  return wpp;
+}
+
+// Ícones como PNG via serviço público confiável (shields.io / simpleicons via unavatar)
+// Usamos imagens PNG hospedadas no ibb para garantir carregamento em e-mail
+const ICONES = {
+  ig: `<a href="https://www.instagram.com/grupoworksystem/" target="_blank" style="display:inline-block;margin:0 3px;text-decoration:none;">
+    <table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;">
+      <tr><td style="width:26px;height:26px;background:#E8670A;border-radius:6px;text-align:center;vertical-align:middle;">
+        <span style="color:#ffffff;font-size:14px;line-height:26px;font-family:Arial;">in</span>
+      </td></tr>
+    </table>
+  </a>`,
+  fb: '',
+  li: ''
+};
+
+function iconeRede(letra, cor, href) {
+  return `<a href="${href}" target="_blank" style="display:inline-block;margin:0 3px;text-decoration:none;"><table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;"><tr><td style="width:26px;height:26px;background:${cor};border-radius:6px;text-align:center;vertical-align:middle;font-family:Arial;font-size:11px;font-weight:bold;color:#ffffff;">${letra}</td></tr></table></a>`;
+}
+
+function icone(letra) {
+  return `<table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;"><tr><td style="width:18px;height:18px;background:#E8670A;border-radius:4px;text-align:center;vertical-align:middle;font-family:Arial;font-size:10px;font-weight:bold;color:#ffffff;">${letra}</td></tr></table>`;
+}
+
+function gerarHTML() {
+  const nome  = document.getElementById('inp-nome').value    || 'Nome do Colaborador';
+  const setor = document.getElementById('inp-setor').value   || 'Setor / Cargo';
+  const ramal = document.getElementById('inp-ramal').value   || '&mdash;';
+  const wpp   = document.getElementById('inp-whatsapp').value|| '';
+  const email = document.getElementById('inp-email').value   || 'sac@worksystem.com.br';
+  const foto  = document.getElementById('inp-foto').value.trim();
+  const uni   = UNIDADES[unidadeAtual];
+
+  const wppNum  = wpp.replace(/\D/g,'');
+  const wppLink = wppNum ? `https://wa.me/55${wppNum}` : '#';
+  const wppFmt  = wpp ? formatarWpp(wpp) : '&mdash;';
+
+  // Foto: usa URL do imgbb se preenchida, senão placeholder cinza
+  const fotoTag = foto
+    ? `<img src="${foto}" width="88" height="88" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #E8670A;display:block;" alt="${nome}">`
+    : `<table cellpadding="0" cellspacing="0" border="0"><tr><td style="width:76px;height:76px;border-radius:50%;border:3px solid #E8670A;background:#F0F0F0;text-align:center;vertical-align:middle;font-size:28px;">👤</td></tr></table>`;
+
+  // Ícones redes: quadrados coloridos com letra &mdash; máxima compatibilidade com clientes de e-mail
+  const redesHTML =
+    iconeRede('ig', '#C13584', 'https://www.instagram.com/grupoworksystem/') +
+    iconeRede('fb', '#1877F2', 'https://www.facebook.com/grupoworksystem') +
+    iconeRede('in', '#0A66C2', 'https://www.linkedin.com/company/grupoworksystem/');
+
+  return `<table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;max-width:540px;">
+  <!-- LINHA LARANJA TOPO -->
+  <tr><td colspan="3" style="height:3px;background:#E8670A;padding:0;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr><td colspan="3" style="height:14px;font-size:0;">&nbsp;</td></tr>
+
+  <tr>
+    <!-- COLUNA FOTO + REDES -->
+    <td width="108" style="vertical-align:top;text-align:center;padding-right:0;">
+      <table cellpadding="0" cellspacing="0" border="0" width="108">
+        <tr><td style="text-align:center;padding-bottom:10px;">${fotoTag}</td></tr>
+        <tr><td style="text-align:center;">${redesHTML}</td></tr>
+      </table>
+    </td>
+
+    <!-- SEPARADOR VERTICAL -->
+    <td width="1" style="background:#E8E8E8;padding:0 8px;font-size:0;">&nbsp;</td>
+
+    <!-- COLUNA DADOS -->
+    <td style="vertical-align:top;padding-left:16px;">
+
+      <!-- NOME E CARGO -->
+      <p style="margin:0 0 2px 0;font-size:16px;font-weight:700;color:#2D2D2D;font-family:Arial,sans-serif;">${nome}</p>
+      <p style="margin:0 0 14px 0;font-size:11px;color:#E8670A;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;">${setor}</p>
+
+      <!-- CONTATOS -->
+      <table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:12px;color:#6B6B6B;">
+        <tr>
+          
+          <td style="padding-bottom:6px;">Geral: <strong style="color:#2D2D2D;">(41) 3028-9191</strong>&nbsp;&nbsp;<span style="color:#E8670A;">|</span>&nbsp;&nbsp;Ramal: <strong style="color:#2D2D2D;">${ramal}</strong></td>
+        </tr>
+        <tr>
+          
+          <td style="padding-bottom:6px;"><a href="${wppLink}" target="_blank" style="color:#2D2D2D;text-decoration:none;">WhatsApp: <strong>${wppFmt}</strong></a></td>
+        </tr>
+        <tr>
+          
+          <td style="padding-bottom:6px;"><a href="mailto:${email}" style="color:#E8670A;text-decoration:none;font-weight:600;">${email}</a></td>
+        </tr>
+        <tr>
+          
+          <td><a href="${uni.maps}" target="_blank" style="color:#6B6B6B;text-decoration:none;">${uni.endereco}</a></td>
+        </tr>
+      </table>
+
+      <!-- SEPARADOR -->
+      <div style="border-top:1px solid #E8E8E8;margin:12px 0;"></div>
+
+      <!-- LOGO + TAGLINE -->
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="vertical-align:middle;padding-right:12px;">
+            <a href="https://www.worksystem.com.br" target="_blank">
+              <img src="${LOGO_URL}" width="90" height="42" alt="Grupo WorkSystem" style="display:block;border:0;">
+            </a>
+          </td>
+          <td style="vertical-align:middle;border-left:1px solid #E8E8E8;padding-left:12px;">
+            <span style="font-family:Arial,sans-serif;font-size:10px;color:#9E9E9E;letter-spacing:0.5px;display:block;margin-bottom:3px;">Tecnologia &middot; Seguran&ccedil;a &middot; Continuidade</span>
+            <a href="https://www.worksystem.com.br" target="_blank" style="font-family:Arial,sans-serif;font-size:11px;color:#E8670A;font-weight:700;text-decoration:none;">www.worksystem.com.br</a>
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+</table>`;
+}
+
+function atualizar() {
+  const html = gerarHTML();
+  document.getElementById('signature-render').innerHTML = html;
+  document.getElementById('html-output').value = html;
+}
+
+function copiarHTML() {
+  navigator.clipboard.writeText(document.getElementById('html-output').value).then(() => {
+    const btn = document.getElementById('btn-cop');
+    btn.textContent = 'Copiado ✓';
+    btn.classList.add('copiado');
+    setTimeout(() => { btn.textContent = 'Copiar HTML'; btn.classList.remove('copiado'); }, 2500);
+  });
+}
+
+atualizar();
+</script>
+</body>
+</html>
