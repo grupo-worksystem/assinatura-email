@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gerador de Assinatura &mdash; WorkSystem</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root {
     --laranja: #E8670A;
@@ -75,7 +76,24 @@
   .btn-copiar { padding: 6px 16px; background: var(--laranja); color: #fff; border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
   .btn-copiar:hover { background: #c9560a; }
   .btn-copiar.copiado { background: #2e7d32; }
+  .btn-jpeg { padding: 6px 14px; background: #2D2D2D; color: #fff; border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .btn-jpeg:hover { background: #555; }
+  .btn-jpeg:disabled { background: #888; cursor: not-allowed; }
   #html-output { font-family: 'Courier New', monospace; font-size: 11px; color: #B0BEC5; background: transparent; border: none; width: 100%; height: 120px; resize: none; outline: none; line-height: 1.6; }
+
+  /* Foto upload */
+  .foto-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .foto-tab { flex: 1; padding: 8px; border: 1.5px solid var(--borda); border-radius: 8px; background: var(--cinza-claro); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--cinza); cursor: pointer; transition: all 0.2s; font-weight: 500; }
+  .foto-tab:hover { border-color: var(--laranja); color: var(--laranja); }
+  .foto-tab.ativo { border-color: var(--laranja); background: #fff8f4; color: var(--laranja); font-weight: 600; }
+  .upload-dropzone { border: 2px dashed var(--borda); border-radius: 8px; padding: 18px 12px; text-align: center; cursor: pointer; transition: all 0.2s; color: var(--cinza); font-size: 13px; background: var(--cinza-claro); user-select: none; }
+  .upload-dropzone:hover, .upload-dropzone.drag-over { border-color: var(--laranja); color: var(--laranja); background: #fff8f4; }
+  .upload-dropzone.tem-foto { border-color: #43a047; background: #f1f8f1; color: #2e7d32; border-style: solid; }
+  .foto-info-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 6px 10px; background: #f1f8f1; border-radius: 6px; border: 1px solid #c8e6c9; }
+  .foto-info-bar span { font-size: 12px; color: #2e7d32; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+  .foto-info-bar button { padding: 3px 10px; background: #e53935; color: #fff; border: none; border-radius: 5px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+  .foto-info-bar button:hover { background: #b71c1c; }
+  .aviso-base64 { font-size: 11px; color: #E8670A; margin-top: 4px; display: none; }
   .instrucoes { background: #fff8f4; border: 1px solid #ffd4b3; border-radius: 10px; padding: 14px 18px; font-size: 12px; color: var(--cinza); line-height: 1.8; }
   .instrucoes strong { color: var(--laranja); }
   .instrucoes ol { padding-left: 16px; }
@@ -124,9 +142,29 @@
       <input type="text" id="inp-email" placeholder="Ex: nome@worksystem.com.br" oninput="atualizar()">
     </div>
     <div class="field">
-      <label>URL da foto (imgbb)</label>
-      <input type="text" id="inp-foto" placeholder="Cole aqui o link direto da imagem no imgbb" oninput="atualizar()">
-      <p class="hint">Suba a foto em imgbb.com → clique na imagem → copie o "Direct link"</p>
+      <label>Foto do colaborador</label>
+      <div class="foto-tabs">
+        <button class="foto-tab ativo" id="tab-url" onclick="setFotoTab('url')">Link externo</button>
+        <button class="foto-tab" id="tab-upload" onclick="setFotoTab('upload')">Upload direto</button>
+      </div>
+
+      <div id="foto-url-panel">
+        <input type="text" id="inp-foto" placeholder="Cole aqui o link direto da imagem no imgbb" oninput="onInputFotoURL()">
+        <p class="hint">Suba a foto em imgbb.com → clique na imagem → copie o "Direct link"</p>
+      </div>
+
+      <div id="foto-upload-panel" style="display:none;">
+        <div class="upload-dropzone" id="foto-dropzone" onclick="document.getElementById('inp-foto-file').click()">
+          <span id="foto-status-text">&#8679; Clique ou arraste uma foto aqui</span>
+        </div>
+        <input type="file" id="inp-foto-file" accept="image/*" style="display:none" onchange="handleFotoUpload(this)">
+        <div id="foto-info-bar" class="foto-info-bar" style="display:none;">
+          <span id="foto-nome-display"></span>
+          <button onclick="limparFoto()">&#10005; Remover</button>
+        </div>
+        <p class="hint">Armazenada no navegador (IndexedDB) &mdash; apagada automaticamente após o download do JPEG.</p>
+        <p class="aviso-base64" id="aviso-base64">&#9888; No HTML para Outlook a foto será embutida em base64 &mdash; tamanho maior.</p>
+      </div>
     </div>
 
     <button class="btn-gerar" onclick="atualizar()">↻ Atualizar assinatura</button>
@@ -142,7 +180,11 @@
     <div class="code-box">
       <div class="code-box-header">
         <span>HTML para Outlook</span>
-        <button class="btn-copiar" id="btn-cop" onclick="copiarHTML()">Copiar HTML</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-jpeg" id="btn-jpeg" onclick="baixarJPEG()">&#8595; JPEG</button>
+          <button class="btn-jpeg" onclick="baixarHTML()">&#8595; HTML</button>
+          <button class="btn-copiar" id="btn-cop" onclick="copiarHTML()">Copiar HTML</button>
+        </div>
       </div>
       <textarea id="html-output" readonly></textarea>
     </div>
@@ -162,6 +204,213 @@
 </div>
 
 <script>
+// ── IndexedDB ──────────────────────────────────────────────────────────────
+const IDB = { db: null, NAME: 'AssinaturaWS', VER: 1, STORE: 'fotos' };
+
+function idbAbrir() {
+  if (IDB.db) return Promise.resolve(IDB.db);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB.NAME, IDB.VER);
+    r.onupgradeneeded = e => e.target.result.createObjectStore(IDB.STORE);
+    r.onsuccess = e => { IDB.db = e.target.result; res(IDB.db); };
+    r.onerror = e => rej(e.target.error);
+  });
+}
+async function idbSalvar(blob) {
+  const db = await idbAbrir();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB.STORE, 'readwrite');
+    tx.objectStore(IDB.STORE).put(blob, 'foto');
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+async function idbLer() {
+  const db = await idbAbrir();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB.STORE, 'readonly');
+    const r = tx.objectStore(IDB.STORE).get('foto');
+    r.onsuccess = e => res(e.target.result || null);
+    r.onerror = e => rej(e.target.error);
+  });
+}
+async function idbApagar() {
+  const db = await idbAbrir();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(IDB.STORE, 'readwrite');
+    tx.objectStore(IDB.STORE).delete('foto');
+    tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
+  });
+}
+
+// ── Estado da foto local ───────────────────────────────────────────────────
+let fotoObjectURL        = null; // object URL do blob (para preview)
+let fotoDataURL          = null; // base64 circular (upload mode → email)
+let fotoURLCircularB64   = null; // base64 circular (url mode → email)
+let fotoTab              = 'url';
+let _urlTimer            = null;
+
+function setFotoTab(tab) {
+  fotoTab = tab;
+  if (tab === 'url') fotoURLCircularB64 = null;
+  document.getElementById('tab-url').classList.toggle('ativo', tab === 'url');
+  document.getElementById('tab-upload').classList.toggle('ativo', tab === 'upload');
+  document.getElementById('foto-url-panel').style.display   = tab === 'url'    ? '' : 'none';
+  document.getElementById('foto-upload-panel').style.display = tab === 'upload' ? '' : 'none';
+  atualizar();
+}
+
+function getFotoSrc(paraEmail) {
+  if (fotoTab === 'upload') {
+    return paraEmail ? (fotoDataURL || '') : (fotoObjectURL || '');
+  }
+  const url = document.getElementById('inp-foto').value.trim();
+  // Para o email: usa versão circular em base64 se já processada, senão a URL direta
+  return (paraEmail && fotoURLCircularB64) ? fotoURLCircularB64 : url;
+}
+
+// ── Canvas: lógica central de recorte circular (recebe HTMLImageElement) ──
+function _canvasCircular(img) {
+  return new Promise(resolve => {
+    const S      = 176; // 88px × 2 (retina)
+    const BORDER = 6;   // 3px × 2
+    const canvas = document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Borda laranja: círculo completo
+    ctx.beginPath();
+    ctx.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#E8670A';
+    ctx.fill();
+
+    // 2. Recorte circular interno para a foto
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(S / 2, S / 2, S / 2 - BORDER, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    // 3. Foto com object-fit: cover
+    const r  = S / 2 - BORDER;
+    const sc = Math.max(r * 2 / img.naturalWidth, r * 2 / img.naturalHeight);
+    const w  = img.naturalWidth * sc, h = img.naturalHeight * sc;
+    ctx.drawImage(img, S / 2 - w / 2, S / 2 - h / 2, w, h);
+    ctx.restore();
+
+    canvas.toBlob(resolve, 'image/png');
+  });
+}
+
+// Recorta blob local em círculo
+function recortarCircular(blob) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const tmp = URL.createObjectURL(blob);
+    img.onload  = () => { URL.revokeObjectURL(tmp); _canvasCircular(img).then(resolve); };
+    img.onerror = () => { URL.revokeObjectURL(tmp); reject(); };
+    img.src = tmp;
+  });
+}
+
+// Processa URL externa (imgbb etc.) → base64 circular para o email
+// Debounced: aguarda 800ms após o usuário parar de digitar
+function onInputFotoURL() {
+  fotoURLCircularB64 = null;
+  atualizar();
+  clearTimeout(_urlTimer);
+  const url = document.getElementById('inp-foto').value.trim();
+  if (!url) return;
+  _urlTimer = setTimeout(() => _processarURLCircular(url), 800);
+}
+
+function _processarURLCircular(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // necessário para o canvas não ficar "tainted"
+    img.onload = () => {
+      _canvasCircular(img).then(blob => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          fotoURLCircularB64 = e.target.result;
+          // Atualiza só o textarea (preview já usa a URL com CSS)
+          document.getElementById('html-output').value = gerarHTML(true);
+        };
+        reader.readAsDataURL(blob);
+        resolve();
+      });
+    };
+    img.onerror = () => resolve(); // CORS bloqueado → mantém URL original no HTML
+    img.src = url;
+  });
+}
+
+async function handleFotoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('foto-status-text').textContent = 'Processando…';
+  const blob = await recortarCircular(file).catch(() => file);
+  await idbSalvar(blob);
+  aplicarBlob(blob, file.name);
+}
+
+function aplicarBlob(blob, nomeExibir) {
+  if (fotoObjectURL) URL.revokeObjectURL(fotoObjectURL);
+  fotoObjectURL = URL.createObjectURL(blob);
+
+  // data URL necessário para embutir no HTML (sem URL pública)
+  const reader = new FileReader();
+  reader.onload = e => { fotoDataURL = e.target.result; atualizar(); };
+  reader.readAsDataURL(blob);
+
+  const nome = nomeExibir || blob.name || 'foto';
+  const dz = document.getElementById('foto-dropzone');
+  dz.classList.add('tem-foto');
+  document.getElementById('foto-status-text').textContent = '✓ ' + nome;
+  document.getElementById('foto-nome-display').textContent = nome;
+  document.getElementById('foto-info-bar').style.display = 'flex';
+  document.getElementById('aviso-base64').style.display = 'block';
+  atualizar();
+}
+
+async function limparFoto() {
+  await idbApagar();
+  if (fotoObjectURL) { URL.revokeObjectURL(fotoObjectURL); fotoObjectURL = null; }
+  fotoDataURL = null;
+  document.getElementById('foto-dropzone').classList.remove('tem-foto');
+  document.getElementById('foto-status-text').textContent = '⭱ Clique ou arraste uma foto aqui';
+  document.getElementById('foto-info-bar').style.display = 'none';
+  document.getElementById('aviso-base64').style.display = 'none';
+  document.getElementById('inp-foto-file').value = '';
+  atualizar();
+}
+
+function setupDragDrop() {
+  const dz = document.getElementById('foto-dropzone');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', async e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      document.getElementById('foto-status-text').textContent = 'Processando…';
+      const blob = await recortarCircular(file).catch(() => file);
+      await idbSalvar(blob);
+      aplicarBlob(blob, file.name);
+    }
+  });
+}
+
+// Restaura foto do IndexedDB ao carregar a página
+async function restaurarFoto() {
+  const blob = await idbLer().catch(() => null);
+  if (blob) {
+    setFotoTab('upload');
+    aplicarBlob(blob);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 const LOGO_URL = 'https://i.ibb.co/XZxzCLY9/Logo-Work-System-Origina.png';
 
 const UNIDADES = {
@@ -207,22 +456,29 @@ function icone(letra) {
   return `<table cellpadding="0" cellspacing="0" border="0" style="display:inline-table;"><tr><td style="width:18px;height:18px;background:#E8670A;border-radius:4px;text-align:center;vertical-align:middle;font-family:Arial;font-size:10px;font-weight:bold;color:#ffffff;">${letra}</td></tr></table>`;
 }
 
-function gerarHTML() {
+function gerarHTML(paraEmail = false) {
   const nome  = document.getElementById('inp-nome').value    || 'Nome do Colaborador';
   const setor = document.getElementById('inp-setor').value   || 'Setor / Cargo';
   const ramal = document.getElementById('inp-ramal').value   || '&mdash;';
   const wpp   = document.getElementById('inp-whatsapp').value|| '';
   const email = document.getElementById('inp-email').value   || 'sac@worksystem.com.br';
-  const foto  = document.getElementById('inp-foto').value.trim();
+  const foto  = getFotoSrc(paraEmail);
   const uni   = UNIDADES[unidadeAtual];
 
   const wppNum  = wpp.replace(/\D/g,'');
   const wppLink = wppNum ? `https://wa.me/55${wppNum}` : '#';
   const wppFmt  = wpp ? formatarWpp(wpp) : '&mdash;';
 
-  // Foto: usa URL do imgbb se preenchida, senão placeholder cinza
+  // Canvas já bake borda+recorte no PNG quando há foto processada:
+  // - email: nunca usa CSS (imagem já tem tudo)
+  // - preview upload: imagem vem do canvas → sem CSS duplicado
+  // - preview URL sem processamento: mantém CSS para aparência correta no browser
+  const fotoCanvasAtiva = fotoTab === 'upload' && !!fotoObjectURL;
+  const imgStyle = (paraEmail || fotoCanvasAtiva)
+    ? 'width:88px;height:88px;display:block;'
+    : 'width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #E8670A;display:block;';
   const fotoTag = foto
-    ? `<img src="${foto}" width="88" height="88" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:3px solid #E8670A;display:block;" alt="${nome}">`
+    ? `<img src="${foto}" width="88" height="88" style="${imgStyle}" alt="${nome}">`
     : `<table cellpadding="0" cellspacing="0" border="0"><tr><td style="width:76px;height:76px;border-radius:50%;border:3px solid #E8670A;background:#F0F0F0;text-align:center;vertical-align:middle;font-size:28px;">👤</td></tr></table>`;
 
   // Ícones redes: quadrados coloridos com letra &mdash; máxima compatibilidade com clientes de e-mail
@@ -299,13 +555,47 @@ function gerarHTML() {
 }
 
 function atualizar() {
-  const html = gerarHTML();
-  document.getElementById('signature-render').innerHTML = html;
-  document.getElementById('html-output').value = html;
+  document.getElementById('signature-render').innerHTML = gerarHTML(false);
+  document.getElementById('html-output').value = gerarHTML(true);
+}
+
+async function baixarJPEG() {
+  const el  = document.getElementById('signature-render');
+  const btn = document.getElementById('btn-jpeg');
+  btn.disabled = true;
+  btn.textContent = 'Gerando…';
+  try {
+    const canvas = await html2canvas(el, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+    });
+    const link = document.createElement('a');
+    const nome = document.getElementById('inp-nome').value.trim().replace(/\s+/g, '_') || 'assinatura';
+    link.download = `assinatura_${nome}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+
+    // Limpa IndexedDB e object URL após o download
+    if (fotoTab === 'upload' && fotoObjectURL) {
+      await idbApagar();
+      URL.revokeObjectURL(fotoObjectURL);
+      fotoObjectURL = null;
+      fotoDataURL   = null;
+      document.getElementById('foto-dropzone').classList.remove('tem-foto');
+      document.getElementById('foto-status-text').textContent = '⭱ Clique ou arraste uma foto aqui';
+      document.getElementById('foto-info-bar').style.display = 'none';
+      document.getElementById('aviso-base64').style.display = 'none';
+      document.getElementById('inp-foto-file').value = '';
+      atualizar();
+    }
+  } catch {
+    alert('Erro ao gerar imagem. Verifique se a foto usa um link HTTPS acessível.');
+  }
+  btn.disabled = false;
+  btn.textContent = '↓ JPEG';
 }
 
 function copiarHTML() {
-  navigator.clipboard.writeText(document.getElementById('html-output').value).then(() => {
+  navigator.clipboard.writeText(gerarHTML(true)).then(() => {
     const btn = document.getElementById('btn-cop');
     btn.textContent = 'Copiado ✓';
     btn.classList.add('copiado');
@@ -313,7 +603,20 @@ function copiarHTML() {
   });
 }
 
+function baixarHTML() {
+  const conteudo = gerarHTML(true);
+  const nome = document.getElementById('inp-nome').value.trim().replace(/\s+/g, '_') || 'assinatura';
+  const url = URL.createObjectURL(new Blob([conteudo], { type: 'text/html;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.download = `assinatura_${nome}.html`;
+  link.href = url;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 atualizar();
+setupDragDrop();
+restaurarFoto();
 </script>
 </body>
 </html>
